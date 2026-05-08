@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI 课程知识地图原型</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <span class="brand-mark">学</span>
+          <div>
+            <h1>课程知识地图</h1>
+            <p>面向大学生的 AI 导图笔记原型</p>
+          </div>
+        </div>
+
+        <section class="course-panel">
+          <label for="courseName">课程</label>
+          <div class="course-row">
+            <input id="courseName" value="数据结构" />
+            <button id="buildDemoMap" type="button">生成</button>
+          </div>
+        </section>
+
+        <section class="metric-grid" aria-label="学习状态">
+          <div>
+            <strong id="nodeCount">0</strong>
+            <span>知识点</span>
+          </div>
+          <div>
+            <strong id="masteredCount">0</strong>
+            <span>已掌握</span>
+          </div>
+          <div>
+            <strong id="weakCount">0</strong>
+            <span>待复习</span>
+          </div>
+        </section>
+
+        <section class="actions">
+          <button id="addChild" type="button">添加子知识点</button>
+          <button id="generateReview" type="button">生成复习清单</button>
+          <button id="exportJson" type="button">导出 JSON</button>
+        </section>
+
+        <section class="review-box">
+          <h2>复习清单</h2>
+          <ul id="reviewList"></ul>
+        </section>
+      </aside>
+
+      <section class="map-stage">
+        <header class="stage-header">
+          <div>
+            <span class="eyebrow">Mind Map</span>
+            <h2 id="mapTitle">数据结构知识地图</h2>
+          </div>
+          <div class="legend">
+            <span><i class="dot new"></i>未学</span>
+            <span><i class="dot learning"></i>学习中</span>
+            <span><i class="dot mastered"></i>已掌握</span>
+          </div>
+        </header>
+        <div id="mindMap" class="mind-map" aria-label="课程知识地图"></div>
+      </section>
+
+      <aside class="detail-panel">
+        <div class="detail-header">
+          <div>
+            <span class="eyebrow">Knowledge Card</span>
+            <input id="nodeTitle" class="title-input" />
+          </div>
+          <select id="nodeStatus" aria-label="掌握状态">
+            <option value="new">未学</option>
+            <option value="learning">学习中</option>
+            <option value="mastered">已掌握</option>
+          </select>
+        </div>
+
+        <label class="field-label" for="nodeContent">详细内容</label>
+        <textarea id="nodeContent" spellcheck="false"></textarea>
+
+        <div class="ai-tools">
+          <button id="aiExplain" type="button">AI 撰写解释</button>
+          <button id="aiQuestions" type="button">AI 生成自测题</button>
+          <button id="saveNode" type="button">保存</button>
+        </div>
+
+        <section class="hint-box">
+          <h2>调试说明</h2>
+          <p>当前 AI 按钮使用本地模拟函数，后续可替换为真实 API。建议先验证交互闭环，再接入后端与模型服务。</p>
+        </section>
+      </aside>
+    </main>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
