@@ -8,9 +8,12 @@ const reviewListEl = document.querySelector("#reviewList");
 const nodeCountEl = document.querySelector("#nodeCount");
 const masteredCountEl = document.querySelector("#masteredCount");
 const weakCountEl = document.querySelector("#weakCount");
+const historyListEl = document.querySelector("#historyList");
+const historyCountEl = document.querySelector("#historyCount");
 
 let selectedNodeId = "root";
 let nodes = [];
+let historyRecords = [];
 
 function createDemoMap(courseName) {
   return [
@@ -73,8 +76,59 @@ function createDemoMap(courseName) {
   ];
 }
 
+function formatTime(date = new Date()) {
+  return date.toLocaleString("zh-CN", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 function getChildren(parentId) {
   return nodes.filter((node) => node.parentId === parentId);
+}
+
+function getStatusText(status) {
+  const statusMap = {
+    new: "未学",
+    learning: "学习中",
+    mastered: "已掌握",
+  };
+
+  return statusMap[status] || "未知";
+}
+
+function addHistory(node, action, detail) {
+  historyRecords.unshift({
+    id: `history-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    nodeId: node.id,
+    nodeTitle: node.title,
+    action,
+    detail,
+    time: formatTime(),
+  });
+
+  renderHistory();
+}
+
+function buildChangeSummary(before, after) {
+  const changes = [];
+
+  if (before.title !== after.title) {
+    changes.push(`名称：${before.title || "空"} -> ${after.title}`);
+  }
+
+  if (before.status !== after.status) {
+    changes.push(`状态：${getStatusText(before.status)} -> ${getStatusText(after.status)}`);
+  }
+
+  if (before.content !== after.content) {
+    const preview = after.content ? after.content.slice(0, 42) : "清空了详细内容";
+    changes.push(`内容：${preview}${after.content.length > 42 ? "..." : ""}`);
+  }
+
+  return changes.join("；");
 }
 
 function layoutNodes() {
@@ -91,8 +145,8 @@ function layoutNodes() {
 
     getChildren(node.id).forEach((child, childIndex) => {
       positions.set(child.id, {
-        x: x + 210,
-        y: y + childIndex * 82 - 42,
+        x: x + 220,
+        y: y + childIndex * 88 - 44,
       });
     });
   });
@@ -101,8 +155,8 @@ function layoutNodes() {
 }
 
 function drawLine(from, to) {
-  const fromCenter = { x: from.x + 87, y: from.y + 27 };
-  const toCenter = { x: to.x + 87, y: to.y + 27 };
+  const fromCenter = { x: from.x + 95, y: from.y + 36 };
+  const toCenter = { x: to.x + 95, y: to.y + 36 };
   const dx = toCenter.x - fromCenter.x;
   const dy = toCenter.y - fromCenter.y;
   const length = Math.hypot(dx, dy);
@@ -136,13 +190,39 @@ function renderMap() {
     card.dataset.id = node.id;
     card.innerHTML = `
       <div class="node-title">${node.title}</div>
-      <div class="node-summary">${node.content.slice(0, 34)}${node.content.length > 34 ? "..." : ""}</div>
+      <div class="node-summary">${node.content ? node.content.slice(0, 34) : "暂无简介，可在右侧补充"}${node.content.length > 34 ? "..." : ""}</div>
     `;
     card.addEventListener("click", () => selectNode(node.id));
     mapEl.appendChild(card);
   });
 
   updateMetrics();
+}
+
+function renderHistory() {
+  historyCountEl.textContent = `${historyRecords.length} 条`;
+  historyListEl.innerHTML = "";
+
+  if (historyRecords.length === 0) {
+    const empty = document.createElement("li");
+    empty.className = "empty-history";
+    empty.textContent = "还没有修改记录。保存、添加知识点或使用 AI 后会出现在这里。";
+    historyListEl.appendChild(empty);
+    return;
+  }
+
+  historyRecords.forEach((record) => {
+    const item = document.createElement("li");
+    item.className = "history-item";
+    item.innerHTML = `
+      <div class="history-meta">
+        <strong>${record.nodeTitle}</strong>
+        <span>${record.time}</span>
+      </div>
+      <div class="history-text">${record.action}：${record.detail}</div>
+    `;
+    historyListEl.appendChild(item);
+  });
 }
 
 function selectNode(id) {
@@ -154,26 +234,37 @@ function selectNode(id) {
   renderMap();
 }
 
-function saveSelectedNode() {
+function saveSelectedNode(options = {}) {
   const node = nodes.find((item) => item.id === selectedNodeId);
+  const before = { ...node };
+
   node.title = nodeTitleEl.value.trim() || "未命名知识点";
   node.status = nodeStatusEl.value;
   node.content = nodeContentEl.value.trim();
+
+  const detail = options.detail || buildChangeSummary(before, node);
+  if (!options.silent && detail) {
+    addHistory(node, options.action || "保存修改", detail);
+  }
+
   renderMap();
   updateMetrics();
 }
 
 function addChildNode() {
-  saveSelectedNode();
+  saveSelectedNode({ silent: true });
   const parent = nodes.find((node) => node.id === selectedNodeId);
   const id = `node-${Date.now()}`;
-  nodes.push({
+  const child = {
     id,
     parentId: parent.id,
     title: "新知识点",
     status: "new",
-    content: `这是「${parent.title}」下的新知识点。可以在这里补充定义、例子、公式、易错点和复习题。`,
-  });
+    content: "",
+  };
+
+  nodes.push(child);
+  addHistory(child, "新增知识点", `添加到「${parent.title}」下`);
   selectNode(id);
 }
 
@@ -181,9 +272,10 @@ function generateAiText(mode) {
   const node = nodes.find((item) => item.id === selectedNodeId);
   const parent = nodes.find((item) => item.id === node.parentId);
   const context = parent ? `它属于「${parent.title}」这一部分。` : "它是课程总览节点。";
+  const currentContent = node.content || "这里可以先写下你对这个知识点的初步理解。";
 
   if (mode === "questions") {
-    return `${node.content}
+    return `${currentContent}
 
 自测题：
 1. 请用自己的话解释「${node.title}」的核心概念。
@@ -192,7 +284,7 @@ function generateAiText(mode) {
 4. 请举一个课堂、作业或项目中的应用例子。`;
   }
 
-  return `${node.content}
+  return `${currentContent}
 
 AI 撰写草稿：
 「${node.title}」是本课程中的一个关键知识点。${context}学习时可以从定义、适用场景、典型例题和常见错误四个角度展开。
@@ -206,8 +298,12 @@ AI 撰写草稿：
 }
 
 function appendAiText(mode) {
+  const action = mode === "questions" ? "AI 生成自测题" : "AI 撰写解释";
   nodeContentEl.value = generateAiText(mode);
-  saveSelectedNode();
+  saveSelectedNode({
+    action,
+    detail: `为「${nodeTitleEl.value}」生成了${mode === "questions" ? "自测题" : "解释草稿"}`,
+  });
 }
 
 function updateMetrics() {
@@ -216,8 +312,7 @@ function updateMetrics() {
   weakCountEl.textContent = nodes.filter((node) => node.status !== "mastered").length;
 }
 
-function generateReviewList() {
-  saveSelectedNode();
+function renderReviewItems() {
   const weakNodes = nodes.filter((node) => node.status !== "mastered");
   reviewListEl.innerHTML = "";
   weakNodes.forEach((node) => {
@@ -227,9 +322,14 @@ function generateReviewList() {
   });
 }
 
+function generateReviewList() {
+  saveSelectedNode({ action: "生成复习清单", detail: "根据当前掌握状态刷新复习内容" });
+  renderReviewItems();
+}
+
 function exportJson() {
-  saveSelectedNode();
-  const data = JSON.stringify({ course: courseNameEl.value, nodes }, null, 2);
+  saveSelectedNode({ action: "导出数据", detail: "导出当前知识地图 JSON 文件" });
+  const data = JSON.stringify({ course: courseNameEl.value, nodes, historyRecords }, null, 2);
   const blob = new Blob([data], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
@@ -243,9 +343,11 @@ function rebuildCourse() {
   const courseName = courseNameEl.value.trim() || "我的课程";
   mapTitleEl.textContent = `${courseName}知识地图`;
   nodes = createDemoMap(courseName);
+  historyRecords = [];
   selectedNodeId = "root";
   selectNode(selectedNodeId);
-  generateReviewList();
+  renderReviewItems();
+  renderHistory();
 }
 
 document.querySelector("#buildDemoMap").addEventListener("click", rebuildCourse);
@@ -254,6 +356,6 @@ document.querySelector("#generateReview").addEventListener("click", generateRevi
 document.querySelector("#exportJson").addEventListener("click", exportJson);
 document.querySelector("#aiExplain").addEventListener("click", () => appendAiText("explain"));
 document.querySelector("#aiQuestions").addEventListener("click", () => appendAiText("questions"));
-document.querySelector("#saveNode").addEventListener("click", saveSelectedNode);
+document.querySelector("#saveNode").addEventListener("click", () => saveSelectedNode());
 
 rebuildCourse();
