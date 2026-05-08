@@ -41,7 +41,6 @@
         </section>
 
         <section class="actions">
-          <button id="addChild" type="button">添加子知识点</button>
           <button id="generateReview" type="button">生成复习清单</button>
           <button id="exportJson" type="button">导出 JSON</button>
         </section>
@@ -64,6 +63,7 @@
             <span><i class="dot mastered"></i>已掌握</span>
           </div>
         </header>
+        <button id="addChild" class="map-add-button" type="button">添加子知识点</button>
         <div id="mindMap" class="mind-map" aria-label="课程知识地图"></div>
       </section>
 
@@ -81,13 +81,25 @@
         </div>
 
         <label class="field-label" for="nodeContent">详细内容</label>
-        <textarea id="nodeContent" spellcheck="false"></textarea>
+        <textarea
+          id="nodeContent"
+          spellcheck="false"
+          placeholder="示例：在这里记录概念定义、课堂例题、易错点、公式推导或自己的理解。输入内容后，这段提示会自动消失。"
+        ></textarea>
 
         <div class="ai-tools">
           <button id="aiExplain" type="button">AI 撰写解释</button>
           <button id="aiQuestions" type="button">AI 生成自测题</button>
           <button id="saveNode" type="button">保存</button>
         </div>
+
+        <section class="history-box">
+          <div class="section-title-row">
+            <h2>历史修改记录</h2>
+            <span id="historyCount">0 条</span>
+          </div>
+          <ul id="historyList" class="history-list"></ul>
+        </section>
 
         <section class="hint-box">
           <h2>调试说明</h2>
