@@ -43,10 +43,16 @@ button:hover {
   filter: brightness(0.96);
 }
 
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
 .app-shell {
   display: grid;
-  grid-template-columns: 300px minmax(420px, 1fr) 380px;
-  min-height: 100vh;
+  grid-template-columns: 300px minmax(460px, 1fr) 400px;
+  height: 100vh;
+  overflow: hidden;
 }
 
 .sidebar,
@@ -54,6 +60,7 @@ button:hover {
   background: var(--panel);
   padding: 22px;
   border-color: var(--line);
+  overflow-y: auto;
 }
 
 .sidebar {
@@ -62,7 +69,6 @@ button:hover {
 
 .detail-panel {
   border-left: 1px solid var(--line);
-  overflow-y: auto;
 }
 
 .brand {
@@ -99,7 +105,8 @@ p {
 .metric-grid span,
 .hint-box p,
 .history-meta,
-.section-title-row span {
+.section-title-row span,
+.zoom-control {
   color: var(--muted);
 }
 
@@ -107,7 +114,8 @@ p {
 .metric-grid span,
 .eyebrow,
 .history-meta,
-.section-title-row span {
+.section-title-row span,
+.zoom-control {
   font-size: 12px;
 }
 
@@ -115,14 +123,15 @@ p {
 .actions,
 .review-box,
 .hint-box,
-.history-box {
+.history-box,
+.ai-draft-box {
   margin-top: 22px;
 }
 
 .course-panel label,
 .field-label {
   display: block;
-  margin-bottom: 8px;
+  margin: 14px 0 8px;
   font-size: 13px;
   font-weight: 700;
 }
@@ -150,14 +159,18 @@ select {
 }
 
 textarea {
-  min-height: 34vh;
+  min-height: 130px;
   resize: vertical;
-  padding: 14px;
-  line-height: 1.7;
+  padding: 12px;
+  line-height: 1.65;
 }
 
 textarea::placeholder {
   color: #9aa3af;
+}
+
+.compact-textarea {
+  min-height: 145px;
 }
 
 .metric-grid {
@@ -189,7 +202,8 @@ textarea::placeholder {
 
 .review-box h2,
 .hint-box h2,
-.history-box h2 {
+.history-box h2,
+.ai-draft-box h2 {
   font-size: 15px;
   margin-bottom: 10px;
 }
@@ -203,8 +217,11 @@ textarea::placeholder {
 
 .map-stage {
   position: relative;
-  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
   padding: 22px;
+  overflow: hidden;
 }
 
 .stage-header {
@@ -212,21 +229,44 @@ textarea::placeholder {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  margin-bottom: 20px;
-  padding-right: 150px;
+  margin-bottom: 14px;
 }
 
 .stage-header h2 {
   font-size: 24px;
 }
 
-.map-add-button {
-  position: absolute;
-  top: 22px;
-  right: 22px;
-  z-index: 5;
-  background: #20372d;
-  box-shadow: 0 12px 30px rgba(21, 34, 26, 0.18);
+.map-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.danger-button {
+  background: var(--red);
+}
+
+.muted-button {
+  color: #314036;
+  background: #e8eee2;
+}
+
+.zoom-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 220px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcf8;
+}
+
+.zoom-control input {
+  height: auto;
+  padding: 0;
 }
 
 .legend {
@@ -257,10 +297,30 @@ textarea::placeholder {
   background: var(--green);
 }
 
-.mind-map {
-  min-width: 780px;
-  min-height: calc(100vh - 92px);
+.map-viewport {
+  flex: 1;
   position: relative;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background-image:
+    linear-gradient(rgba(47, 125, 89, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(47, 125, 89, 0.07) 1px, transparent 1px);
+  background-size: 28px 28px;
+  cursor: grab;
+}
+
+.map-viewport.dragging {
+  cursor: grabbing;
+}
+
+.mind-map {
+  position: absolute;
+  left: 0;
+  top: 0;
+  min-width: 1000px;
+  min-height: 720px;
+  transform-origin: 0 0;
 }
 
 .node {
@@ -310,6 +370,7 @@ textarea::placeholder {
   height: 2px;
   background: #b9c4b0;
   transform-origin: left center;
+  pointer-events: none;
 }
 
 .detail-header {
@@ -317,7 +378,7 @@ textarea::placeholder {
   grid-template-columns: 1fr 104px;
   gap: 12px;
   align-items: end;
-  margin-bottom: 18px;
+  margin-bottom: 8px;
 }
 
 .title-input {
@@ -330,14 +391,16 @@ textarea::placeholder {
   font-weight: 800;
 }
 
-.ai-tools {
+.ai-tools,
+.draft-actions {
   display: grid;
-  grid-template-columns: 1fr 1fr 76px;
+  grid-template-columns: 1fr 1fr 88px;
   gap: 8px;
   margin-top: 12px;
 }
 
-.ai-tools button:nth-child(2) {
+.ai-tools button:nth-child(2),
+.draft-actions button:nth-child(2) {
   background: var(--blue);
 }
 
@@ -346,11 +409,16 @@ textarea::placeholder {
 }
 
 .hint-box,
-.history-box {
+.history-box,
+.ai-draft-box {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #fbfcf8;
   padding: 14px;
+}
+
+.ai-draft-box textarea {
+  min-height: 120px;
 }
 
 .hint-box p {
@@ -401,27 +469,21 @@ textarea::placeholder {
   line-height: 1.6;
 }
 
-@media (max-width: 1020px) {
+@media (max-width: 1120px) {
   .app-shell {
     grid-template-columns: 1fr;
+    height: auto;
+    overflow: visible;
   }
 
   .sidebar,
   .detail-panel {
     border: 0;
     border-bottom: 1px solid var(--line);
+    overflow: visible;
   }
 
-  .stage-header {
-    padding-right: 0;
-  }
-
-  .map-add-button {
-    position: static;
-    margin-bottom: 14px;
-  }
-
-  .mind-map {
-    min-height: 620px;
+  .map-stage {
+    min-height: 720px;
   }
 }
