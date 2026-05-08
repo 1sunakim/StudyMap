@@ -63,8 +63,20 @@
             <span><i class="dot mastered"></i>已掌握</span>
           </div>
         </header>
-        <button id="addChild" class="map-add-button" type="button">添加子知识点</button>
-        <div id="mindMap" class="mind-map" aria-label="课程知识地图"></div>
+
+        <div class="map-toolbar" aria-label="地图工具">
+          <button id="addChild" type="button">添加子知识点</button>
+          <button id="deleteNode" class="danger-button" type="button">删除知识点</button>
+          <label class="zoom-control" for="zoomRange">
+            缩放
+            <input id="zoomRange" type="range" min="50" max="150" value="100" />
+            <span id="zoomValue">100%</span>
+          </label>
+        </div>
+
+        <div id="mapViewport" class="map-viewport" aria-label="可拖动知识地图画布">
+          <div id="mindMap" class="mind-map"></div>
+        </div>
       </section>
 
       <aside class="detail-panel">
@@ -80,16 +92,42 @@
           </select>
         </div>
 
-        <label class="field-label" for="nodeContent">详细内容</label>
+        <label class="field-label" for="nodeIntro">知识点介绍</label>
         <textarea
-          id="nodeContent"
+          id="nodeIntro"
+          class="compact-textarea"
           spellcheck="false"
-          placeholder="示例：在这里记录概念定义、课堂例题、易错点、公式推导或自己的理解。输入内容后，这段提示会自动消失。"
+          placeholder="示例：在这里记录概念定义、适用场景、公式推导、易错点或自己的理解。输入内容后，这段提示会自动消失。"
         ></textarea>
+
+        <label class="field-label" for="nodeQuestions">题目与例题</label>
+        <textarea
+          id="nodeQuestions"
+          class="compact-textarea"
+          spellcheck="false"
+          placeholder="示例：在这里放课堂例题、自测题、解题步骤或考试常见题型。"
+        ></textarea>
+
+        <section class="ai-draft-box">
+          <div class="section-title-row">
+            <h2>AI 临时草稿</h2>
+            <span id="draftType">等待生成</span>
+          </div>
+          <textarea
+            id="aiDraft"
+            spellcheck="false"
+            placeholder="AI 生成的解释或题目会先出现在这里。确认后再放入正式文本。"
+          ></textarea>
+          <div class="draft-actions">
+            <button id="applyDraftIntro" type="button">放入介绍</button>
+            <button id="applyDraftQuestions" type="button">放入题目</button>
+            <button id="clearDraft" class="muted-button" type="button">清空草稿</button>
+          </div>
+        </section>
 
         <div class="ai-tools">
           <button id="aiExplain" type="button">AI 撰写解释</button>
-          <button id="aiQuestions" type="button">AI 生成自测题</button>
+          <button id="aiQuestions" type="button">AI 生成题目</button>
           <button id="saveNode" type="button">保存</button>
         </div>
 
@@ -103,7 +141,7 @@
 
         <section class="hint-box">
           <h2>调试说明</h2>
-          <p>当前 AI 按钮使用本地模拟函数，后续可替换为真实 API。建议先验证交互闭环，再接入后端与模型服务。</p>
+          <p>当前 AI 按钮使用本地模拟函数，后续可替换为真实 API。地图画布支持拖动和平滑缩放。</p>
         </section>
       </aside>
     </main>
