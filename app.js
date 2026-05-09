@@ -1,79 +1,118 @@
+const mapViewportEl = document.querySelector("#mapViewport");
 const mapEl = document.querySelector("#mindMap");
 const courseNameEl = document.querySelector("#courseName");
 const mapTitleEl = document.querySelector("#mapTitle");
 const nodeTitleEl = document.querySelector("#nodeTitle");
 const nodeStatusEl = document.querySelector("#nodeStatus");
-const nodeContentEl = document.querySelector("#nodeContent");
+const nodeIntroEl = document.querySelector("#nodeIntro");
+const nodeQuestionsEl = document.querySelector("#nodeQuestions");
+const aiDraftEl = document.querySelector("#aiDraft");
+const draftTypeEl = document.querySelector("#draftType");
 const reviewListEl = document.querySelector("#reviewList");
 const nodeCountEl = document.querySelector("#nodeCount");
 const masteredCountEl = document.querySelector("#masteredCount");
 const weakCountEl = document.querySelector("#weakCount");
 const historyListEl = document.querySelector("#historyList");
 const historyCountEl = document.querySelector("#historyCount");
+const zoomRangeEl = document.querySelector("#zoomRange");
+const zoomValueEl = document.querySelector("#zoomValue");
+const deleteNodeEl = document.querySelector("#deleteNode");
+const importFileEl = document.querySelector("#importFile");
 
 let selectedNodeId = "root";
 let nodes = [];
 let historyRecords = [];
+let aiDraftType = "";
+let mapTransform = { x: 40, y: 40, scale: 1 };
+let dragState = null;
+let nodePressState = null;
+let nodeDragState = null;
+let currentPositions = new Map();
+
+function createNode({ id, parentId, title, status, intro, questions = "", x = null, y = null }) {
+  return { id, parentId, title, status, intro, questions, x, y };
+}
 
 function createDemoMap(courseName) {
   return [
-    {
+    createNode({
       id: "root",
       parentId: null,
       title: courseName,
       status: "learning",
-      content: `${courseName}的课程总览。这里可以沉淀课堂笔记、考试重点、知识结构和报告素材。`,
-    },
-    {
+      intro: `${courseName}的课程总览。这里可以沉淀课堂笔记、考试重点、知识结构和报告素材。`,
+      questions: "自测：请列出本课程最重要的三个章节，并说明它们之间的关系。",
+    }),
+    createNode({
       id: "array",
       parentId: "root",
       title: "线性表",
       status: "mastered",
-      content: "线性表是一组具有前后关系的数据元素。重点比较顺序表和链表的存储方式、插入删除复杂度。",
-    },
-    {
+      intro: "线性表是一组具有前后关系的数据元素。重点比较顺序表和链表的存储方式、插入删除复杂度。",
+      questions: "例题：为什么顺序表适合随机访问，而链表适合频繁插入和删除？",
+    }),
+    createNode({
       id: "stack",
       parentId: "root",
       title: "栈与队列",
       status: "learning",
-      content: "栈遵循后进先出，队列遵循先进先出。常见题型包括括号匹配、表达式求值、广度优先搜索。",
-    },
-    {
+      intro: "栈遵循后进先出，队列遵循先进先出。常见题型包括括号匹配、表达式求值、广度优先搜索。",
+      questions: "自测：用栈判断一段括号序列是否合法，并写出核心步骤。",
+    }),
+    createNode({
       id: "tree",
       parentId: "root",
       title: "树与二叉树",
       status: "new",
-      content: "需要掌握遍历方式、二叉搜索树、平衡树的基本思想，以及堆结构。",
-    },
-    {
+      intro: "需要掌握遍历方式、二叉搜索树、平衡树的基本思想，以及堆结构。",
+      questions: "例题：给定前序和中序遍历结果，尝试还原一棵二叉树。",
+    }),
+    createNode({
       id: "graph",
       parentId: "root",
       title: "图",
       status: "new",
-      content: "图适合描述复杂关系。重点包括邻接矩阵、邻接表、DFS、BFS、最短路径和最小生成树。",
-    },
-    {
+      intro: "图适合描述复杂关系。重点包括邻接矩阵、邻接表、DFS、BFS、最短路径和最小生成树。",
+      questions: "自测：比较邻接矩阵和邻接表在稀疏图中的空间消耗。",
+    }),
+    createNode({
       id: "sort",
       parentId: "root",
       title: "排序算法",
       status: "learning",
-      content: "比较冒泡、选择、插入、归并、快速排序的时间复杂度、稳定性和适用场景。",
-    },
-    {
+      intro: "比较冒泡、选择、插入、归并、快速排序的时间复杂度、稳定性和适用场景。",
+      questions: "例题：解释快速排序在最坏情况下为什么会退化到 O(n²)。",
+    }),
+    createNode({
       id: "linked",
       parentId: "array",
       title: "链表",
       status: "mastered",
-      content: "链表通过指针连接节点，插入删除灵活，但随机访问效率低。",
-    },
-    {
+      intro: "链表通过指针连接节点，插入删除灵活，但随机访问效率低。",
+      questions: "自测：如何用双指针找到链表的中间节点？",
+    }),
+    createNode({
       id: "binary-tree",
       parentId: "tree",
       title: "二叉树遍历",
       status: "new",
-      content: "前序、中序、后序和层序遍历是二叉树题目的基础。",
-    },
+      intro: "前序、中序、后序和层序遍历是二叉树题目的基础。",
+      questions: "例题：分别写出递归版和迭代版中序遍历思路。",
+    }),
   ];
+}
+
+function normalizeNode(node) {
+  return {
+    id: node.id || `node-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    parentId: node.parentId ?? null,
+    title: node.title || "未命名知识点",
+    status: node.status || "new",
+    intro: node.intro ?? node.content ?? "",
+    questions: node.questions || "",
+    x: Number.isFinite(node.x) ? node.x : null,
+    y: Number.isFinite(node.y) ? node.y : null,
+  };
 }
 
 function formatTime(date = new Date()) {
@@ -87,6 +126,10 @@ function formatTime(date = new Date()) {
 
 function getChildren(parentId) {
   return nodes.filter((node) => node.parentId === parentId);
+}
+
+function getNodeText(node) {
+  return [node.intro, node.questions].filter(Boolean).join("\n");
 }
 
 function getStatusText(status) {
@@ -123,40 +166,88 @@ function buildChangeSummary(before, after) {
     changes.push(`状态：${getStatusText(before.status)} -> ${getStatusText(after.status)}`);
   }
 
-  if (before.content !== after.content) {
-    const preview = after.content ? after.content.slice(0, 42) : "清空了详细内容";
-    changes.push(`内容：${preview}${after.content.length > 42 ? "..." : ""}`);
+  if (before.intro !== after.intro) {
+    const preview = after.intro ? after.intro.slice(0, 36) : "清空了知识点介绍";
+    changes.push(`介绍：${preview}${after.intro.length > 36 ? "..." : ""}`);
+  }
+
+  if (before.questions !== after.questions) {
+    const preview = after.questions ? after.questions.slice(0, 36) : "清空了题目";
+    changes.push(`题目：${preview}${after.questions.length > 36 ? "..." : ""}`);
   }
 
   return changes.join("；");
 }
 
+function getNodeDepth(nodeId) {
+  let depth = 0;
+  let current = nodes.find((node) => node.id === nodeId);
+
+  while (current && current.parentId) {
+    depth += 1;
+    current = nodes.find((node) => node.id === current.parentId);
+  }
+
+  return depth;
+}
+
 function layoutNodes() {
   const positions = new Map();
   const root = nodes.find((node) => node.parentId === null);
-  positions.set(root.id, { x: 300, y: 270 });
+  let row = 0;
+  const rowHeight = 122;
+  const colWidth = 265;
+  const marginX = 70;
+  const marginY = 70;
 
-  const firstLevel = getChildren(root.id);
-  firstLevel.forEach((node, index) => {
-    const angle = (Math.PI * 2 * index) / firstLevel.length - Math.PI / 2;
-    const x = 300 + Math.cos(angle) * 250;
-    const y = 270 + Math.sin(angle) * 210;
-    positions.set(node.id, { x, y });
+  function walk(node, depth) {
+    const children = getChildren(node.id);
 
-    getChildren(node.id).forEach((child, childIndex) => {
-      positions.set(child.id, {
-        x: x + 220,
-        y: y + childIndex * 88 - 44,
-      });
-    });
+    if (children.length === 0) {
+      const y = marginY + row * rowHeight;
+      row += 1;
+      positions.set(node.id, { x: marginX + depth * colWidth, y });
+      return y;
+    }
+
+    const childYs = children.map((child) => walk(child, depth + 1));
+    const y = childYs.reduce((sum, value) => sum + value, 0) / childYs.length;
+    positions.set(node.id, { x: marginX + depth * colWidth, y });
+    return y;
+  }
+
+  walk(root, 0);
+
+  nodes.forEach((node) => {
+    if (Number.isFinite(node.x) && Number.isFinite(node.y)) {
+      positions.set(node.id, { x: node.x, y: node.y });
+    }
   });
 
   return positions;
 }
 
+function fitMapSize(positions) {
+  let maxX = 0;
+  let maxY = 0;
+
+  positions.forEach((position) => {
+    maxX = Math.max(maxX, position.x + 260);
+    maxY = Math.max(maxY, position.y + 150);
+  });
+
+  mapEl.style.width = `${Math.max(maxX, 1000)}px`;
+  mapEl.style.height = `${Math.max(maxY, 720)}px`;
+}
+
+function applyMapTransform() {
+  mapEl.style.transform = `translate(${mapTransform.x}px, ${mapTransform.y}px) scale(${mapTransform.scale})`;
+  zoomValueEl.textContent = `${Math.round(mapTransform.scale * 100)}%`;
+}
+
 function drawLine(from, to) {
-  const fromCenter = { x: from.x + 95, y: from.y + 36 };
-  const toCenter = { x: to.x + 95, y: to.y + 36 };
+  const fromCenter = { x: from.x + 190, y: from.y + 36 };
+  const toCenter = { x: to.x, y: to.y + 36 };
   const dx = toCenter.x - fromCenter.x;
   const dy = toCenter.y - fromCenter.y;
   const length = Math.hypot(dx, dy);
@@ -174,6 +265,8 @@ function drawLine(from, to) {
 function renderMap() {
   mapEl.innerHTML = "";
   const positions = layoutNodes();
+  currentPositions = positions;
+  fitMapSize(positions);
 
   nodes.forEach((node) => {
     if (!node.parentId) return;
@@ -182,21 +275,29 @@ function renderMap() {
 
   nodes.forEach((node) => {
     const position = positions.get(node.id);
+    const text = getNodeText(node);
     const card = document.createElement("button");
     card.type = "button";
-    card.className = `node ${node.status}${node.id === selectedNodeId ? " active" : ""}`;
+    card.className = `node ${node.status}${node.id === selectedNodeId ? " active" : ""}${nodeDragState?.nodeId === node.id ? " dragging-node" : ""}`;
     card.style.left = `${position.x}px`;
     card.style.top = `${position.y}px`;
     card.dataset.id = node.id;
     card.innerHTML = `
       <div class="node-title">${node.title}</div>
-      <div class="node-summary">${node.content ? node.content.slice(0, 34) : "暂无简介，可在右侧补充"}${node.content.length > 34 ? "..." : ""}</div>
+      <div class="node-summary">${text ? text.slice(0, 34) : "暂无简介，可在右侧补充"}${text.length > 34 ? "..." : ""}</div>
     `;
-    card.addEventListener("click", () => selectNode(node.id));
+    card.addEventListener("pointerdown", (event) => startNodePress(event, node.id, position));
+    card.addEventListener("click", (event) => {
+      event.stopPropagation();
+      if (nodeDragState?.moved) return;
+      selectNode(node.id);
+    });
     mapEl.appendChild(card);
   });
 
   updateMetrics();
+  updateDeleteButton();
+  applyMapTransform();
 }
 
 function renderHistory() {
@@ -225,12 +326,18 @@ function renderHistory() {
   });
 }
 
+function updateDeleteButton() {
+  const selected = nodes.find((node) => node.id === selectedNodeId);
+  deleteNodeEl.disabled = !selected || selected.parentId === null;
+}
+
 function selectNode(id) {
   selectedNodeId = id;
   const node = nodes.find((item) => item.id === id);
   nodeTitleEl.value = node.title;
   nodeStatusEl.value = node.status;
-  nodeContentEl.value = node.content;
+  nodeIntroEl.value = node.intro;
+  nodeQuestionsEl.value = node.questions;
   renderMap();
 }
 
@@ -240,7 +347,8 @@ function saveSelectedNode(options = {}) {
 
   node.title = nodeTitleEl.value.trim() || "未命名知识点";
   node.status = nodeStatusEl.value;
-  node.content = nodeContentEl.value.trim();
+  node.intro = nodeIntroEl.value.trim();
+  node.questions = nodeQuestionsEl.value.trim();
 
   const detail = options.detail || buildChangeSummary(before, node);
   if (!options.silent && detail) {
@@ -248,48 +356,82 @@ function saveSelectedNode(options = {}) {
   }
 
   renderMap();
-  updateMetrics();
+  renderReviewItems();
 }
 
 function addChildNode() {
   saveSelectedNode({ silent: true });
   const parent = nodes.find((node) => node.id === selectedNodeId);
-  const id = `node-${Date.now()}`;
-  const child = {
+  const id = `node-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  const child = createNode({
     id,
     parentId: parent.id,
     title: "新知识点",
     status: "new",
-    content: "",
-  };
+    intro: "",
+    questions: "",
+    x: null,
+    y: null,
+  });
 
   nodes.push(child);
   addHistory(child, "新增知识点", `添加到「${parent.title}」下`);
   selectNode(id);
 }
 
+function getDescendantIds(nodeId) {
+  const ids = [];
+
+  function collect(id) {
+    getChildren(id).forEach((child) => {
+      ids.push(child.id);
+      collect(child.id);
+    });
+  }
+
+  collect(nodeId);
+  return ids;
+}
+
+function deleteSelectedNode() {
+  const selected = nodes.find((node) => node.id === selectedNodeId);
+  if (!selected || selected.parentId === null) return;
+
+  const idsToDelete = [selected.id, ...getDescendantIds(selected.id)];
+  const parentId = selected.parentId;
+  nodes = nodes.filter((node) => !idsToDelete.includes(node.id));
+  addHistory(selected, "删除知识点", `删除「${selected.title}」及其 ${idsToDelete.length - 1} 个子知识点`);
+  selectNode(parentId);
+  renderReviewItems();
+}
+
 function generateAiText(mode) {
   const node = nodes.find((item) => item.id === selectedNodeId);
   const parent = nodes.find((item) => item.id === node.parentId);
   const context = parent ? `它属于「${parent.title}」这一部分。` : "它是课程总览节点。";
-  const currentContent = node.content || "这里可以先写下你对这个知识点的初步理解。";
+  const currentIntro = nodeIntroEl.value.trim() || node.intro || "这里可以先写下你对这个知识点的初步理解。";
 
   if (mode === "questions") {
-    return `${currentContent}
-
-自测题：
+    return `自测题：
 1. 请用自己的话解释「${node.title}」的核心概念。
 2. ${context}它通常解决什么问题？
 3. 学习「${node.title}」时最容易混淆的点是什么？
-4. 请举一个课堂、作业或项目中的应用例子。`;
+
+例题：
+给出一个与「${node.title}」相关的课堂场景，说明你会如何判断使用条件，并写出解题步骤。
+
+参考答题框架：
+- 先写出定义或判断依据。
+- 再列出关键步骤。
+- 最后说明容易出错的地方。`;
   }
 
-  return `${currentContent}
+  return `「${node.title}」是本课程中的一个关键知识点。${context}
 
-AI 撰写草稿：
-「${node.title}」是本课程中的一个关键知识点。${context}学习时可以从定义、适用场景、典型例题和常见错误四个角度展开。
+知识点介绍草稿：
+${currentIntro}
 
-建议笔记结构：
+建议补充方向：
 - 概念定义：说明它是什么，以及与相近概念的区别。
 - 使用场景：说明什么时候会用到它。
 - 解题步骤：整理成可以复用的流程。
@@ -297,13 +439,33 @@ AI 撰写草稿：
 - 例子：补充一个能帮助理解的具体案例。`;
 }
 
-function appendAiText(mode) {
-  const action = mode === "questions" ? "AI 生成自测题" : "AI 撰写解释";
-  nodeContentEl.value = generateAiText(mode);
+function setDraft(mode) {
+  aiDraftType = mode;
+  aiDraftEl.value = generateAiText(mode);
+  draftTypeEl.textContent = mode === "questions" ? "题目草稿" : "介绍草稿";
+  addHistory(nodes.find((node) => node.id === selectedNodeId), mode === "questions" ? "AI 生成题目草稿" : "AI 生成介绍草稿", "已放入临时草稿，等待用户确认");
+}
+
+function applyDraft(target) {
+  const draft = aiDraftEl.value.trim();
+  if (!draft) return;
+
+  if (target === "intro") {
+    nodeIntroEl.value = nodeIntroEl.value.trim() ? `${nodeIntroEl.value.trim()}\n\n${draft}` : draft;
+  } else {
+    nodeQuestionsEl.value = nodeQuestionsEl.value.trim() ? `${nodeQuestionsEl.value.trim()}\n\n${draft}` : draft;
+  }
+
   saveSelectedNode({
-    action,
-    detail: `为「${nodeTitleEl.value}」生成了${mode === "questions" ? "自测题" : "解释草稿"}`,
+    action: target === "intro" ? "采纳 AI 介绍" : "采纳 AI 题目",
+    detail: `将临时草稿放入${target === "intro" ? "知识点介绍" : "题目与例题"}`,
   });
+}
+
+function clearDraft() {
+  aiDraftType = "";
+  aiDraftEl.value = "";
+  draftTypeEl.textContent = "等待生成";
 }
 
 function updateMetrics() {
@@ -317,7 +479,7 @@ function renderReviewItems() {
   reviewListEl.innerHTML = "";
   weakNodes.forEach((node) => {
     const item = document.createElement("li");
-    item.textContent = `${node.title}：补充定义、例题和易错点`;
+    item.textContent = `${node.title}：补充介绍、例题和易错点`;
     reviewListEl.appendChild(item);
   });
 }
@@ -339,23 +501,234 @@ function exportJson() {
   URL.revokeObjectURL(url);
 }
 
+function createBlankMap() {
+  const courseName = courseNameEl.value.trim() || "新课程";
+  mapTitleEl.textContent = `${courseName}知识地图`;
+  nodes = [
+    createNode({
+      id: "root",
+      parentId: null,
+      title: courseName,
+      status: "new",
+      intro: "",
+      questions: "",
+      x: 70,
+      y: 120,
+    }),
+  ];
+  historyRecords = [];
+  selectedNodeId = "root";
+  clearDraft();
+  resetMapView();
+  selectNode(selectedNodeId);
+  renderReviewItems();
+  renderHistory();
+  addHistory(nodes[0], "新建思维导图", `创建「${courseName}」空白导图`);
+}
+
+function importMapFile(file) {
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.addEventListener("load", () => {
+    try {
+      const data = JSON.parse(reader.result);
+      const importedNodes = Array.isArray(data.nodes) ? data.nodes.map(normalizeNode) : null;
+      const root = importedNodes?.find((node) => node.parentId === null);
+
+      if (!importedNodes || !root) {
+        throw new Error("文件中没有可用的 nodes 或根节点。");
+      }
+
+      nodes = importedNodes;
+      historyRecords = Array.isArray(data.historyRecords) ? data.historyRecords : [];
+      const courseName = data.course || root.title || "导入课程";
+      courseNameEl.value = courseName;
+      mapTitleEl.textContent = `${courseName}知识地图`;
+      selectedNodeId = root.id;
+      clearDraft();
+      resetMapView();
+      selectNode(selectedNodeId);
+      renderReviewItems();
+      addHistory(root, "导入思维导图", `从 ${file.name} 导入 ${nodes.length} 个知识点`);
+    } catch (error) {
+      alert(`导入失败：${error.message}`);
+    } finally {
+      importFileEl.value = "";
+    }
+  });
+  reader.readAsText(file, "utf-8");
+}
+
 function rebuildCourse() {
   const courseName = courseNameEl.value.trim() || "我的课程";
   mapTitleEl.textContent = `${courseName}知识地图`;
-  nodes = createDemoMap(courseName);
+  nodes = createDemoMap(courseName).map(normalizeNode);
   historyRecords = [];
   selectedNodeId = "root";
+  clearDraft();
   selectNode(selectedNodeId);
   renderReviewItems();
   renderHistory();
 }
 
+function resetMapView() {
+  mapTransform = { x: 40, y: 40, scale: 1 };
+  zoomRangeEl.value = "100";
+  applyMapTransform();
+}
+
+function startDrag(event) {
+  if (event.target.closest(".node")) return;
+
+  dragState = {
+    startX: event.clientX,
+    startY: event.clientY,
+    originX: mapTransform.x,
+    originY: mapTransform.y,
+  };
+  mapViewportEl.classList.add("dragging");
+}
+
+function moveDrag(event) {
+  if (!dragState) return;
+
+  mapTransform.x = dragState.originX + event.clientX - dragState.startX;
+  mapTransform.y = dragState.originY + event.clientY - dragState.startY;
+  applyMapTransform();
+}
+
+function stopDrag() {
+  dragState = null;
+  mapViewportEl.classList.remove("dragging");
+}
+
+function updateZoom() {
+  mapTransform.scale = Number(zoomRangeEl.value) / 100;
+  applyMapTransform();
+}
+
+function zoomAtPoint(nextScale, clientX, clientY) {
+  const scale = Math.min(1.5, Math.max(0.5, nextScale));
+  const rect = mapViewportEl.getBoundingClientRect();
+  const pointX = (clientX - rect.left - mapTransform.x) / mapTransform.scale;
+  const pointY = (clientY - rect.top - mapTransform.y) / mapTransform.scale;
+
+  mapTransform.x = clientX - rect.left - pointX * scale;
+  mapTransform.y = clientY - rect.top - pointY * scale;
+  mapTransform.scale = scale;
+  zoomRangeEl.value = String(Math.round(scale * 100));
+  applyMapTransform();
+}
+
+function handleWheelZoom(event) {
+  event.preventDefault();
+  const delta = event.deltaY > 0 ? -0.08 : 0.08;
+  zoomAtPoint(mapTransform.scale + delta, event.clientX, event.clientY);
+}
+
+function startNodePress(event, nodeId, position) {
+  event.stopPropagation();
+  nodePressState = {
+    nodeId,
+    startX: event.clientX,
+    startY: event.clientY,
+    originX: position.x,
+    originY: position.y,
+    timer: null,
+  };
+
+  nodePressState.timer = window.setTimeout(() => {
+    const node = nodes.find((item) => item.id === nodeId);
+    if (!nodePressState || !node) return;
+
+    nodeDragState = {
+      nodeId,
+      startX: nodePressState.startX,
+      startY: nodePressState.startY,
+      originX: node.x ?? nodePressState.originX,
+      originY: node.y ?? nodePressState.originY,
+      moved: false,
+    };
+    nodePressState = null;
+    mapViewportEl.classList.add("dragging");
+    selectNode(nodeId);
+  }, 360);
+}
+
+function cancelNodePress() {
+  if (!nodePressState) return;
+  window.clearTimeout(nodePressState.timer);
+  nodePressState = null;
+}
+
+function moveNodeDrag(event) {
+  if (nodePressState) {
+    const moved = Math.hypot(event.clientX - nodePressState.startX, event.clientY - nodePressState.startY);
+    if (moved > 8) cancelNodePress();
+  }
+
+  if (!nodeDragState) return false;
+
+  const node = nodes.find((item) => item.id === nodeDragState.nodeId);
+  if (!node) return false;
+
+  node.x = nodeDragState.originX + (event.clientX - nodeDragState.startX) / mapTransform.scale;
+  node.y = nodeDragState.originY + (event.clientY - nodeDragState.startY) / mapTransform.scale;
+  nodeDragState.moved = true;
+  renderMap();
+  return true;
+}
+
+function stopNodeDrag() {
+  cancelNodePress();
+  if (!nodeDragState) return false;
+
+  const node = nodes.find((item) => item.id === nodeDragState.nodeId);
+  if (nodeDragState.moved && node) {
+    addHistory(node, "调整知识点位置", `移动「${node.title}」到画布新位置`);
+  }
+
+  nodeDragState = null;
+  mapViewportEl.classList.remove("dragging");
+  renderMap();
+  return true;
+}
+
+function resetSelectedNodePosition() {
+  const node = nodes.find((item) => item.id === selectedNodeId);
+  if (!node) return;
+  node.x = null;
+  node.y = null;
+  addHistory(node, "重置知识点位置", `恢复「${node.title}」到自动布局`);
+  renderMap();
+}
+
+document.querySelector("#newMap").addEventListener("click", createBlankMap);
 document.querySelector("#buildDemoMap").addEventListener("click", rebuildCourse);
 document.querySelector("#addChild").addEventListener("click", addChildNode);
+document.querySelector("#deleteNode").addEventListener("click", deleteSelectedNode);
+document.querySelector("#importMap").addEventListener("click", () => importFileEl.click());
+importFileEl.addEventListener("change", () => importMapFile(importFileEl.files[0]));
 document.querySelector("#generateReview").addEventListener("click", generateReviewList);
 document.querySelector("#exportJson").addEventListener("click", exportJson);
-document.querySelector("#aiExplain").addEventListener("click", () => appendAiText("explain"));
-document.querySelector("#aiQuestions").addEventListener("click", () => appendAiText("questions"));
+document.querySelector("#aiExplain").addEventListener("click", () => setDraft("intro"));
+document.querySelector("#aiQuestions").addEventListener("click", () => setDraft("questions"));
+document.querySelector("#applyDraftIntro").addEventListener("click", () => applyDraft("intro"));
+document.querySelector("#applyDraftQuestions").addEventListener("click", () => applyDraft("questions"));
+document.querySelector("#clearDraft").addEventListener("click", clearDraft);
 document.querySelector("#saveNode").addEventListener("click", () => saveSelectedNode());
+zoomRangeEl.addEventListener("input", updateZoom);
+mapViewportEl.addEventListener("wheel", handleWheelZoom, { passive: false });
+mapViewportEl.addEventListener("pointerdown", startDrag);
+window.addEventListener("pointermove", (event) => {
+  if (!moveNodeDrag(event)) moveDrag(event);
+});
+window.addEventListener("pointerup", () => {
+  if (!stopNodeDrag()) stopDrag();
+});
+window.addEventListener("keydown", (event) => {
+  if (event.key.toLowerCase() === "r") resetSelectedNodePosition();
+});
 
 rebuildCourse();
