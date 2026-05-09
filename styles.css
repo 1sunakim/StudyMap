@@ -335,7 +335,12 @@ textarea::placeholder {
   padding: 12px 13px;
   text-align: left;
   cursor: pointer;
-  transition: transform 0.16s ease, box-shadow 0.16s ease;
+  touch-action: none;
+  transition:
+    left 0.12s ease,
+    top 0.12s ease,
+    transform 0.16s ease,
+    box-shadow 0.16s ease;
 }
 
 .node:hover,
@@ -350,6 +355,12 @@ textarea::placeholder {
 
 .node.mastered {
   border-left-color: var(--green);
+}
+
+.node.dragging-node {
+  cursor: grabbing;
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 26px 60px rgba(21, 34, 26, 0.22);
 }
 
 .node-title {
@@ -371,6 +382,11 @@ textarea::placeholder {
   background: #b9c4b0;
   transform-origin: left center;
   pointer-events: none;
+  transition:
+    left 0.12s ease,
+    top 0.12s ease,
+    width 0.12s ease,
+    transform 0.12s ease;
 }
 
 .detail-header {
