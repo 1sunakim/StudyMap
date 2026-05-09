@@ -1,5 +1,6 @@
 const mapViewportEl = document.querySelector("#mapViewport");
 const mapEl = document.querySelector("#mindMap");
+const mapSelectorEl = document.querySelector("#mapSelector");
 const courseNameEl = document.querySelector("#courseName");
 const mapTitleEl = document.querySelector("#mapTitle");
 const nodeTitleEl = document.querySelector("#nodeTitle");
@@ -9,6 +10,7 @@ const nodeQuestionsEl = document.querySelector("#nodeQuestions");
 const aiDraftEl = document.querySelector("#aiDraft");
 const draftTypeEl = document.querySelector("#draftType");
 const reviewListEl = document.querySelector("#reviewList");
+const learningChainEl = document.querySelector("#learningChain");
 const nodeCountEl = document.querySelector("#nodeCount");
 const masteredCountEl = document.querySelector("#masteredCount");
 const weakCountEl = document.querySelector("#weakCount");
@@ -22,12 +24,26 @@ const importFileEl = document.querySelector("#importFile");
 let selectedNodeId = "root";
 let nodes = [];
 let historyRecords = [];
+let maps = [];
+let activeMapId = "";
 let aiDraftType = "";
 let mapTransform = { x: 40, y: 40, scale: 1 };
 let dragState = null;
 let nodePressState = null;
 let nodeDragState = null;
 let currentPositions = new Map();
+
+function createMapState({ id, name, course, nodes: mapNodes, historyRecords: mapHistory = [], selectedNodeId: selected = "root", transform = { x: 40, y: 40, scale: 1 } }) {
+  return {
+    id: id || `map-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    name,
+    course,
+    nodes: mapNodes,
+    historyRecords: mapHistory,
+    selectedNodeId: selected,
+    transform,
+  };
+}
 
 function createNode({ id, parentId, title, status, intro, questions = "", x = null, y = null }) {
   return { id, parentId, title, status, intro, questions, x, y };
@@ -128,6 +144,57 @@ function getChildren(parentId) {
   return nodes.filter((node) => node.parentId === parentId);
 }
 
+function getActiveMap() {
+  return maps.find((map) => map.id === activeMapId);
+}
+
+function getRootNode(mapNodes = nodes) {
+  return mapNodes.find((node) => node.parentId === null);
+}
+
+function saveActiveMapState() {
+  const activeMap = getActiveMap();
+  if (!activeMap) return;
+
+  const root = getRootNode();
+  activeMap.course = courseNameEl.value.trim() || root?.title || activeMap.course;
+  activeMap.name = activeMap.course;
+  activeMap.nodes = nodes.map((node) => ({ ...node }));
+  activeMap.historyRecords = historyRecords.map((record) => ({ ...record }));
+  activeMap.selectedNodeId = selectedNodeId;
+  activeMap.transform = { ...mapTransform };
+}
+
+function loadMapState(mapId) {
+  const map = maps.find((item) => item.id === mapId);
+  if (!map) return;
+
+  activeMapId = map.id;
+  nodes = map.nodes.map(normalizeNode);
+  historyRecords = map.historyRecords.map((record) => ({ ...record }));
+  selectedNodeId = nodes.some((node) => node.id === map.selectedNodeId) ? map.selectedNodeId : getRootNode()?.id || "root";
+  mapTransform = { ...map.transform };
+  courseNameEl.value = map.course;
+  mapTitleEl.textContent = `${map.course}知识地图`;
+  zoomRangeEl.value = String(Math.round(mapTransform.scale * 100));
+  clearDraft();
+  renderMapSelector();
+  selectNode(selectedNodeId);
+  renderReviewItems();
+  renderHistory();
+}
+
+function renderMapSelector() {
+  mapSelectorEl.innerHTML = "";
+  maps.forEach((map) => {
+    const option = document.createElement("option");
+    option.value = map.id;
+    option.textContent = map.name || map.course || "未命名导图";
+    option.selected = map.id === activeMapId;
+    mapSelectorEl.appendChild(option);
+  });
+}
+
 function getNodeText(node) {
   return [node.intro, node.questions].filter(Boolean).join("\n");
 }
@@ -153,6 +220,7 @@ function addHistory(node, action, detail) {
   });
 
   renderHistory();
+  saveActiveMapState();
 }
 
 function buildChangeSummary(before, after) {
@@ -297,7 +365,36 @@ function renderMap() {
 
   updateMetrics();
   updateDeleteButton();
+  renderLearningChain();
   applyMapTransform();
+}
+
+function getLearningOrder() {
+  const root = getRootNode();
+  if (!root) return [];
+  const ordered = [];
+
+  function walk(node) {
+    ordered.push(node);
+    getChildren(node.id).forEach(walk);
+  }
+
+  walk(root);
+  return ordered;
+}
+
+function renderLearningChain() {
+  learningChainEl.innerHTML = "";
+  getLearningOrder().forEach((node, index) => {
+    const item = document.createElement("li");
+    item.className = `${node.status}${node.id === selectedNodeId ? " active" : ""}`;
+    item.innerHTML = `
+      <span class="chain-title">${index + 1}. ${node.title}</span>
+      <span class="chain-status">${getStatusText(node.status)}</span>
+    `;
+    item.addEventListener("click", () => selectNode(node.id));
+    learningChainEl.appendChild(item);
+  });
 }
 
 function renderHistory() {
@@ -334,11 +431,13 @@ function updateDeleteButton() {
 function selectNode(id) {
   selectedNodeId = id;
   const node = nodes.find((item) => item.id === id);
+  if (!node) return;
   nodeTitleEl.value = node.title;
   nodeStatusEl.value = node.status;
   nodeIntroEl.value = node.intro;
   nodeQuestionsEl.value = node.questions;
   renderMap();
+  saveActiveMapState();
 }
 
 function saveSelectedNode(options = {}) {
@@ -357,6 +456,7 @@ function saveSelectedNode(options = {}) {
 
   renderMap();
   renderReviewItems();
+  saveActiveMapState();
 }
 
 function addChildNode() {
@@ -403,6 +503,7 @@ function deleteSelectedNode() {
   addHistory(selected, "删除知识点", `删除「${selected.title}」及其 ${idsToDelete.length - 1} 个子知识点`);
   selectNode(parentId);
   renderReviewItems();
+  saveActiveMapState();
 }
 
 function generateAiText(mode) {
@@ -474,6 +575,21 @@ function updateMetrics() {
   weakCountEl.textContent = nodes.filter((node) => node.status !== "mastered").length;
 }
 
+function updateSelectedStatus() {
+  const node = nodes.find((item) => item.id === selectedNodeId);
+  if (!node) return;
+
+  const before = { ...node };
+  node.status = nodeStatusEl.value;
+  const detail = buildChangeSummary(before, node);
+  if (detail) {
+    addHistory(node, "更新学习状态", detail);
+  }
+  renderMap();
+  renderReviewItems();
+  saveActiveMapState();
+}
+
 function renderReviewItems() {
   const weakNodes = nodes.filter((node) => node.status !== "mastered");
   reviewListEl.innerHTML = "";
@@ -491,7 +607,8 @@ function generateReviewList() {
 
 function exportJson() {
   saveSelectedNode({ action: "导出数据", detail: "导出当前知识地图 JSON 文件" });
-  const data = JSON.stringify({ course: courseNameEl.value, nodes, historyRecords }, null, 2);
+  saveActiveMapState();
+  const data = JSON.stringify({ activeMapId, maps, course: courseNameEl.value, nodes, historyRecords }, null, 2);
   const blob = new Blob([data], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
@@ -502,9 +619,9 @@ function exportJson() {
 }
 
 function createBlankMap() {
+  saveActiveMapState();
   const courseName = courseNameEl.value.trim() || "新课程";
-  mapTitleEl.textContent = `${courseName}知识地图`;
-  nodes = [
+  const newNodes = [
     createNode({
       id: "root",
       parentId: null,
@@ -516,13 +633,15 @@ function createBlankMap() {
       y: 120,
     }),
   ];
-  historyRecords = [];
-  selectedNodeId = "root";
-  clearDraft();
-  resetMapView();
-  selectNode(selectedNodeId);
-  renderReviewItems();
-  renderHistory();
+  const map = createMapState({
+    name: courseName,
+    course: courseName,
+    nodes: newNodes,
+    historyRecords: [],
+    selectedNodeId: "root",
+  });
+  maps.push(map);
+  loadMapState(map.id);
   addHistory(nodes[0], "新建思维导图", `创建「${courseName}」空白导图`);
 }
 
@@ -533,6 +652,22 @@ function importMapFile(file) {
   reader.addEventListener("load", () => {
     try {
       const data = JSON.parse(reader.result);
+      if (Array.isArray(data.maps)) {
+        saveActiveMapState();
+        maps = data.maps.map((map) =>
+          createMapState({
+            ...map,
+            nodes: Array.isArray(map.nodes) ? map.nodes.map(normalizeNode) : [],
+            historyRecords: Array.isArray(map.historyRecords) ? map.historyRecords : [],
+          }),
+        );
+        const nextMap = maps.find((map) => map.id === data.activeMapId) || maps[0];
+        if (!nextMap) throw new Error("文件中没有可用的思维导图。");
+        loadMapState(nextMap.id);
+        addHistory(getRootNode(), "导入思维导图集", `从 ${file.name} 导入 ${maps.length} 张导图`);
+        return;
+      }
+
       const importedNodes = Array.isArray(data.nodes) ? data.nodes.map(normalizeNode) : null;
       const root = importedNodes?.find((node) => node.parentId === null);
 
@@ -540,16 +675,17 @@ function importMapFile(file) {
         throw new Error("文件中没有可用的 nodes 或根节点。");
       }
 
-      nodes = importedNodes;
-      historyRecords = Array.isArray(data.historyRecords) ? data.historyRecords : [];
       const courseName = data.course || root.title || "导入课程";
-      courseNameEl.value = courseName;
-      mapTitleEl.textContent = `${courseName}知识地图`;
-      selectedNodeId = root.id;
-      clearDraft();
-      resetMapView();
-      selectNode(selectedNodeId);
-      renderReviewItems();
+      saveActiveMapState();
+      const map = createMapState({
+        name: courseName,
+        course: courseName,
+        nodes: importedNodes,
+        historyRecords: Array.isArray(data.historyRecords) ? data.historyRecords : [],
+        selectedNodeId: root.id,
+      });
+      maps.push(map);
+      loadMapState(map.id);
       addHistory(root, "导入思维导图", `从 ${file.name} 导入 ${nodes.length} 个知识点`);
     } catch (error) {
       alert(`导入失败：${error.message}`);
@@ -561,21 +697,24 @@ function importMapFile(file) {
 }
 
 function rebuildCourse() {
+  saveActiveMapState();
   const courseName = courseNameEl.value.trim() || "我的课程";
-  mapTitleEl.textContent = `${courseName}知识地图`;
-  nodes = createDemoMap(courseName).map(normalizeNode);
-  historyRecords = [];
-  selectedNodeId = "root";
-  clearDraft();
-  selectNode(selectedNodeId);
-  renderReviewItems();
-  renderHistory();
+  const activeMap = getActiveMap();
+  if (!activeMap) return;
+  activeMap.course = courseName;
+  activeMap.name = courseName;
+  activeMap.nodes = createDemoMap(courseName).map(normalizeNode);
+  activeMap.historyRecords = [];
+  activeMap.selectedNodeId = "root";
+  activeMap.transform = { x: 40, y: 40, scale: 1 };
+  loadMapState(activeMap.id);
 }
 
 function resetMapView() {
   mapTransform = { x: 40, y: 40, scale: 1 };
   zoomRangeEl.value = "100";
   applyMapTransform();
+  saveActiveMapState();
 }
 
 function startDrag(event) {
@@ -596,6 +735,7 @@ function moveDrag(event) {
   mapTransform.x = dragState.originX + event.clientX - dragState.startX;
   mapTransform.y = dragState.originY + event.clientY - dragState.startY;
   applyMapTransform();
+  saveActiveMapState();
 }
 
 function stopDrag() {
@@ -606,6 +746,7 @@ function stopDrag() {
 function updateZoom() {
   mapTransform.scale = Number(zoomRangeEl.value) / 100;
   applyMapTransform();
+  saveActiveMapState();
 }
 
 function zoomAtPoint(nextScale, clientX, clientY) {
@@ -619,6 +760,7 @@ function zoomAtPoint(nextScale, clientX, clientY) {
   mapTransform.scale = scale;
   zoomRangeEl.value = String(Math.round(scale * 100));
   applyMapTransform();
+  saveActiveMapState();
 }
 
 function handleWheelZoom(event) {
@@ -677,6 +819,7 @@ function moveNodeDrag(event) {
   node.y = nodeDragState.originY + (event.clientY - nodeDragState.startY) / mapTransform.scale;
   nodeDragState.moved = true;
   renderMap();
+  saveActiveMapState();
   return true;
 }
 
@@ -702,8 +845,47 @@ function resetSelectedNodePosition() {
   node.y = null;
   addHistory(node, "重置知识点位置", `恢复「${node.title}」到自动布局`);
   renderMap();
+  saveActiveMapState();
 }
 
+function initializeMaps() {
+  const courseName = courseNameEl.value.trim() || "数据结构";
+  maps = [
+    createMapState({
+      id: "map-demo",
+      name: courseName,
+      course: courseName,
+      nodes: createDemoMap(courseName).map(normalizeNode),
+      historyRecords: [],
+      selectedNodeId: "root",
+    }),
+    createMapState({
+      id: "map-blank",
+      name: "我的空白导图",
+      course: "我的空白导图",
+      nodes: [
+        createNode({
+          id: "root",
+          parentId: null,
+          title: "我的空白导图",
+          status: "new",
+          intro: "",
+          questions: "",
+          x: 70,
+          y: 120,
+        }),
+      ],
+      historyRecords: [],
+      selectedNodeId: "root",
+    }),
+  ];
+  loadMapState(maps[0].id);
+}
+
+mapSelectorEl.addEventListener("change", () => {
+  saveActiveMapState();
+  loadMapState(mapSelectorEl.value);
+});
 document.querySelector("#newMap").addEventListener("click", createBlankMap);
 document.querySelector("#buildDemoMap").addEventListener("click", rebuildCourse);
 document.querySelector("#addChild").addEventListener("click", addChildNode);
@@ -718,6 +900,7 @@ document.querySelector("#applyDraftIntro").addEventListener("click", () => apply
 document.querySelector("#applyDraftQuestions").addEventListener("click", () => applyDraft("questions"));
 document.querySelector("#clearDraft").addEventListener("click", clearDraft);
 document.querySelector("#saveNode").addEventListener("click", () => saveSelectedNode());
+nodeStatusEl.addEventListener("change", updateSelectedStatus);
 zoomRangeEl.addEventListener("input", updateZoom);
 mapViewportEl.addEventListener("wheel", handleWheelZoom, { passive: false });
 mapViewportEl.addEventListener("pointerdown", startDrag);
@@ -731,4 +914,4 @@ window.addEventListener("keydown", (event) => {
   if (event.key.toLowerCase() === "r") resetSelectedNodePosition();
 });
 
-rebuildCourse();
+initializeMaps();

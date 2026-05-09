@@ -18,6 +18,9 @@
         </div>
 
         <section class="course-panel">
+          <label for="mapSelector">当前思维导图</label>
+          <select id="mapSelector"></select>
+
           <label for="courseName">课程</label>
           <div class="course-row">
             <input id="courseName" value="数据结构" />
@@ -51,6 +54,11 @@
         <section class="review-box">
           <h2>复习清单</h2>
           <ul id="reviewList"></ul>
+        </section>
+
+        <section class="learning-chain-box">
+          <h2>知识点学习链</h2>
+          <ol id="learningChain" class="learning-chain"></ol>
         </section>
       </aside>
 
@@ -144,7 +152,7 @@
 
         <section class="hint-box">
           <h2>调试说明</h2>
-          <p>当前 AI 按钮使用本地模拟函数，后续可替换为真实 API。地图画布支持拖动、滚轮缩放和长按拖动节点。</p>
+          <p>当前 AI 按钮使用本地模拟函数，后续可替换为真实 API。地图画布支持拖动和平滑缩放。</p>
         </section>
       </aside>
     </main>

@@ -122,6 +122,7 @@ p {
 .course-panel,
 .actions,
 .review-box,
+.learning-chain-box,
 .hint-box,
 .history-box,
 .ai-draft-box {
@@ -201,6 +202,7 @@ textarea::placeholder {
 }
 
 .review-box h2,
+.learning-chain-box h2,
 .hint-box h2,
 .history-box h2,
 .ai-draft-box h2 {
@@ -213,6 +215,53 @@ textarea::placeholder {
   margin: 0;
   color: #374151;
   line-height: 1.7;
+}
+
+.learning-chain {
+  display: grid;
+  gap: 8px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.learning-chain li {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--amber);
+  border-radius: 8px;
+  background: #fbfcf8;
+  padding: 9px 10px;
+  cursor: pointer;
+}
+
+.learning-chain li.learning {
+  border-left-color: var(--blue);
+}
+
+.learning-chain li.mastered {
+  border-left-color: var(--green);
+}
+
+.learning-chain li.active {
+  background: white;
+  box-shadow: 0 10px 24px rgba(21, 34, 26, 0.1);
+}
+
+.chain-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.chain-status {
+  color: var(--muted);
+  font-size: 12px;
 }
 
 .map-stage {
