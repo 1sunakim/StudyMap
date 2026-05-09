@@ -41,8 +41,11 @@
         </section>
 
         <section class="actions">
+          <button id="newMap" type="button">新建思维导图</button>
+          <button id="importMap" type="button">导入思维导图</button>
           <button id="generateReview" type="button">生成复习清单</button>
           <button id="exportJson" type="button">导出 JSON</button>
+          <input id="importFile" type="file" accept="application/json,.json" hidden />
         </section>
 
         <section class="review-box">
@@ -141,7 +144,7 @@
 
         <section class="hint-box">
           <h2>调试说明</h2>
-          <p>当前 AI 按钮使用本地模拟函数，后续可替换为真实 API。地图画布支持拖动和平滑缩放。</p>
+          <p>当前 AI 按钮使用本地模拟函数，后续可替换为真实 API。地图画布支持拖动、滚轮缩放和长按拖动节点。</p>
         </section>
       </aside>
     </main>
